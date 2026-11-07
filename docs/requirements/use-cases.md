@@ -1491,10 +1491,14 @@ Details:
   - 6b2. Use case ends.
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
-**Business Rules:** BR-student-lifecycle
+**Business Rules:** BR-student-lifecycle, BR-submission-owed, BR-evaluation-active-evaluatee, BR-section-scoped-access
 
 **Associated Information:**
 - Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Team membership: she stays on her team (BR-student-lifecycle). The warning in step 4 says so.
+- Reminders and owed items: from deactivation on she owes nothing and her teammates are not asked to rate her (BR-submission-owed).
+- Peer evaluations: her teammates can no longer submit or edit an evaluation of her; the evaluations she received while active stay, and the section's peer evaluation report shows her only for weeks with evaluations of her (BR-evaluation-active-evaluatee).
+- Her own weekly activity reports and the evaluations she wrote are kept unchanged and still appear wherever they appeared before.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-reactivate-student: Reactivate a student
 **Assumptions:**
