@@ -12,8 +12,8 @@ Deactivation becomes its own action instead of a side effect of the edit form. O
 
 | Layer | File | New / changed |
 |---|---|---|
-| Frontend view | `frontend/src/pages/student/...` student details page | changed: a Deactivate button, shown only for an active student |
-| Frontend dialog | confirmation dialog listing the consequences (UC step 4) | new |
+| Frontend view | `frontend/src/pages/students/Students.vue` (the list the edit form opens from) | changed: a Deactivate button in Operations, shown only for an active student |
+| Frontend dialog | `ElMessageBox.confirm` listing the consequences (UC step 4) | new |
 | Frontend api | `frontend/src/apis/student` | new `deactivateStudent(studentId)` |
 | Controller | `backend/.../student/StudentController.java` | new `PATCH /students/{studentId}/deactivation` |
 | Service | `backend/.../student/StudentService.java` | new `deactivateStudent(studentId)` |
@@ -39,7 +39,7 @@ classDiagram
 ```mermaid
 sequenceDiagram
   actor I as Instructor
-  participant UI as Student details + dialog
+  participant UI as Students.vue + confirm dialog
   participant SEC as SecurityFilterChain
   participant C as StudentController
   participant S as StudentService
