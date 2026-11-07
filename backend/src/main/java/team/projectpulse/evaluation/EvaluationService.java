@@ -67,6 +67,9 @@ public class EvaluationService {
             throw new PeerEvaluationIllegalArgumentException("The evaluator and evaluatee must be on the same team.");
         }
 
+        // BR-evaluation-active-evaluatee: a deactivated teammate can no longer be rated (UC-STU-deactivate-student)
+        requireActiveEvaluatee(newPeerEvaluation.getEvaluatee());
+
         // Make sure this is not a duplicate evaluation
         if (this.evaluationRepository.findByWeekAndEvaluatorIdAndEvaluateeId(newPeerEvaluation.getWeek(), newPeerEvaluation.getEvaluator().getId(), newPeerEvaluation.getEvaluatee().getId()).isPresent()) {
             throw new PeerEvaluationIllegalArgumentException("You have already submitted an evaluation for " + newPeerEvaluation.getEvaluatee().getFirstName() + " in this week.");
@@ -75,12 +78,19 @@ public class EvaluationService {
         return this.evaluationRepository.save(newPeerEvaluation);
     }
 
+    private static void requireActiveEvaluatee(Student evaluatee) {
+        if (evaluatee == null || !evaluatee.isEnabled()) {
+            throw new PeerEvaluationIllegalArgumentException("This teammate's account is deactivated, so she can no longer be evaluated.");
+        }
+    }
+
     public PeerEvaluation updatePeerEvaluation(Integer evaluationId, PeerEvaluation update) {
         return this.evaluationRepository.findById(evaluationId)
                 .map(oldEvaluation -> {
                     // The week is read off the stored evaluation rather than off the update, because the caller
                     // writes the payload and could otherwise name an open week to reopen a closed evaluation.
                     requireOpenSubmissionWindow(oldEvaluation.getEvaluator().getSection(), oldEvaluation.getWeek(), WINDOW_CLOSED_MESSAGE);
+                    requireActiveEvaluatee(oldEvaluation.getEvaluatee()); // BR-evaluation-active-evaluatee: no edits either
                     rescore(oldEvaluation, update.getRatings());
                     oldEvaluation.setPublicComment(update.getPublicComment());
                     oldEvaluation.setPrivateComment(update.getPrivateComment());
@@ -221,7 +231,13 @@ public class EvaluationService {
         report.setSectionName(this.sectionRepository.findById(sectionId).orElseThrow(() -> new ObjectNotFoundException("section", sectionId)).getSectionName());
 
         // Get all students in the section
-        List<Student> students = this.studentRepository.findBySectionSectionId(sectionId).stream().filter(student -> student.getTeam() != null).collect(Collectors.toList());
+        // A deactivated student stays on her team (BR-student-lifecycle); she is listed only for a week in which she
+        // received at least one evaluation, so her history shows without an empty row after she left
+        // (BR-evaluation-active-evaluatee).
+        List<Student> students = this.studentRepository.findBySectionSectionId(sectionId).stream()
+                .filter(student -> student.getTeam() != null)
+                .filter(student -> student.isEnabled() || !this.evaluationRepository.findByWeekAndEvaluateeId(week, student.getId()).isEmpty())
+                .collect(Collectors.toList());
 
         // For each student, compute her average total score, collect all public comments and private comments, and compute rating averages for each criterion.
         students.forEach(student -> {

@@ -4,6 +4,7 @@ import team.projectpulse.section.Section;
 import team.projectpulse.section.SectionRepository;
 import team.projectpulse.system.UserUtils;
 import team.projectpulse.system.exception.ObjectNotFoundException;
+import team.projectpulse.system.exception.StudentAlreadyDeactivatedException;
 import team.projectpulse.user.userinvitation.UserInvitationService;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
@@ -123,6 +124,20 @@ public class StudentService {
         }
 
         return this.studentRepository.save(oldStudent);
+    }
+
+    /**
+     * UC-STU-deactivate-student step 6. Flips only {@code enabled}; her team, reports and evaluations are untouched
+     * (BR-student-lifecycle). Who may call is decided by the route (StudentAdministrationAuthorizationManager).
+     */
+    public Student deactivateStudent(Integer studentId) {
+        Student student = this.studentRepository.findById(studentId)
+                .orElseThrow(() -> new ObjectNotFoundException("student", studentId)); // extension 6a
+        if (!student.isEnabled()) {
+            throw new StudentAlreadyDeactivatedException(studentId); // extension 3a
+        }
+        student.setEnabled(false);
+        return this.studentRepository.save(student);
     }
 
     public void deleteStudent(Integer studentId) {

@@ -47,4 +47,32 @@ public class StudentSecurityService {
                 .anyMatch(instructor -> instructor.getId().equals(instructorIdFromJwt));
     }
 
+    /**
+     * May the caller deactivate (or reactivate) this student? BR-student-lifecycle: a course admin of the student's
+     * course, or an instructor assigned to her course section.
+     *
+     * <p>Unlike the checks above, an id that names no student is admitted for an instructor caller, so the service
+     * answers 404 (UC-STU-deactivate-student extension 6a) instead of a misleading 403. A student caller is never
+     * admitted.
+     */
+    public boolean isCurrentUserCourseAdminOrInstructorOfStudentSection(Integer studentId) {
+        if (!this.userUtils.hasRole("ROLE_instructor")) {
+            return false;
+        }
+        Integer callerId = this.userUtils.getUserId();
+        Student student = this.studentRepository.findById(studentId).orElse(null);
+        if (student == null) {
+            return true;
+        }
+        if (student.getSection() == null) {
+            return false;
+        }
+        boolean sectionInstructor = student.getSection().getInstructors().stream()
+                .anyMatch(instructor -> instructor.getId().equals(callerId));
+        boolean courseAdmin = student.getSection().getCourse() != null
+                && student.getSection().getCourse().getCourseAdmin() != null
+                && callerId.equals(student.getSection().getCourse().getCourseAdmin().getId());
+        return sectionInstructor || courseAdmin;
+    }
+
 }

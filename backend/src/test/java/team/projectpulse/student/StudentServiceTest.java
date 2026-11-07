@@ -23,11 +23,16 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import team.projectpulse.system.exception.ObjectNotFoundException;
+import team.projectpulse.system.exception.StudentAlreadyDeactivatedException;
+import team.projectpulse.team.Team;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -188,6 +193,59 @@ class StudentServiceTest {
 
         // Then
         verify(this.studentRepository, times(1)).deleteById(1);
+    }
+
+    // T1 — UC-STU-deactivate-student step 6; oracle: POST-1 and BR-student-lifecycle (keeps her team)
+    @Test
+    void testDeactivateStudentSuccess() {
+        // Given
+        Student john = this.students.get(0);
+        john.setId(1);
+        Team team = new Team("Team1", "Team 1 description", "https://www.team1.com");
+        team.setTeamId(1);
+        team.addStudent(john);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.studentRepository.save(any(Student.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Student deactivated = this.studentService.deactivateStudent(1);
+
+        // Then
+        assertThat(deactivated.isEnabled()).isFalse();
+        assertThat(deactivated.getTeam()).isNotNull();
+        assertThat(deactivated.getTeam().getTeamId()).isEqualTo(1);
+        verify(this.studentRepository, times(1)).save(john);
+    }
+
+    // T3 — extension 3a; oracle: 3a1 "changes nothing" and the design's 409
+    @Test
+    void testDeactivateStudentAlreadyDeactivated() {
+        // Given
+        Student john = this.students.get(0);
+        john.setId(1);
+        john.setEnabled(false);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(1));
+
+        // Then
+        assertThat(thrown).isInstanceOf(StudentAlreadyDeactivatedException.class);
+        verify(this.studentRepository, never()).save(any(Student.class));
+    }
+
+    // T7 — extension 6a; oracle: 6a1 "not found ... changes nothing"
+    @Test
+    void testDeactivateStudentNotFound() {
+        // Given
+        given(this.studentRepository.findById(99)).willReturn(Optional.empty());
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(99));
+
+        // Then
+        assertThat(thrown).isInstanceOf(ObjectNotFoundException.class);
+        verify(this.studentRepository, never()).save(any(Student.class));
     }
 
 }

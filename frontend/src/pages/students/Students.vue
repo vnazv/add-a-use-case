@@ -39,7 +39,7 @@
           <el-tag type="danger" v-else>Disabled</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Operations" width="120">
+      <el-table-column label="Operations" width="160">
         <template #default="{ row }">
           <el-button
             icon="Edit"
@@ -47,6 +47,15 @@
             plain
             type="primary"
             @click.stop="showEditStudentDialog(row)"
+          ></el-button>
+          <el-button
+            v-if="row.enabled"
+            icon="SwitchButton"
+            circle
+            plain
+            type="danger"
+            title="Deactivate"
+            @click.stop="confirmDeactivateStudent(row)"
           ></el-button>
         </template>
       </el-table-column>
@@ -78,7 +87,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { searchStudents } from '@/apis/student'
+import { searchStudents, deactivateStudent } from '@/apis/student'
 import type {
   SearchStudentByCriteriaResponse,
   Student,
@@ -86,7 +95,7 @@ import type {
 } from '@/apis/student/types'
 import { useSettingsStore } from '@/stores/settings'
 import EditStudentForm from './EditStudentForm.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const searchCriteria = ref<StudentSearchCriteria>({
   sectionId: NaN,
@@ -127,6 +136,25 @@ async function loadStudents() {
   pageSize.value = result.data.size
   totalElements.value = result.data.totalElements
   loading.value = false
+}
+
+// UC-STU-deactivate-student steps 3-6. The warning states the consequences in the use case's Associated Information.
+async function confirmDeactivateStudent(student: Student) {
+  try {
+    await ElMessageBox.confirm(
+      `Deactivate ${student.firstName} ${student.lastName}? She will no longer be able to log in, ` +
+        'and any session she has open stops working. She stays on her team; her teammates will no longer ' +
+        'be asked to evaluate her and cannot evaluate her. Her past weekly activity reports and peer ' +
+        'evaluations are kept. You can reactivate her later.',
+      'Deactivate student',
+      { confirmButtonText: 'Deactivate', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+  } catch {
+    return // extension 5a: cancelled, nothing changes
+  }
+  await deactivateStudent(student.id as number)
+  ElMessage.success(`${student.firstName} ${student.lastName} has been deactivated.`)
+  loadStudents()
 }
 
 function resetSearchCriteria() {

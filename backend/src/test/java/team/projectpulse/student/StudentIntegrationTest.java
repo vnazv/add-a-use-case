@@ -307,4 +307,78 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.data").value("Access Denied"));
     }
 
+    // ---- UC-STU-deactivate-student (docs/design/stu.md, test list) ----
+
+    // T2 — main scenario; oracle: POST-1, step 6; and BR-student-lifecycle (revokes access) for the login check
+    @Test
+    void testInstructorBillDeactivatesStudentJohn() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/4/deactivation").accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(true))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.id").value(4))
+                .andExpect(jsonPath("$.data.enabled").value(false));
+        this.mockMvc.perform(post(this.baseUrl + "/users/login").with(httpBasic("j.smith@abc.edu", "123456")))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.UNAUTHORIZED));
+    }
+
+    // T3 — extension 3a; oracle: 3a1 (409 per the design's API contract)
+    @Test
+    void testDeactivateAlreadyDeactivatedStudent() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/4/deactivation").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+        this.mockMvc.perform(patch(this.baseUrl + "/students/4/deactivation").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.CONFLICT));
+    }
+
+    // T4 — extension 3b, instructor not assigned to her section; oracle: BR-student-lifecycle, 3b1 "changes nothing"
+    @Test
+    void testInstructorFromAnotherSectionCannotDeactivate() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/4/deactivation").header(HttpHeaders.AUTHORIZATION, this.adminTimToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.FORBIDDEN));
+        // still able to use her account
+        this.mockMvc.perform(get(this.baseUrl + "/students/4").header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.enabled").value(true));
+    }
+
+    // T4 — extension 3b, a student caller; oracle: BR-student-lifecycle (only course admin / section instructor)
+    @Test
+    void testStudentCannotDeactivateTeammate() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/5/deactivation").header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.FORBIDDEN));
+    }
+
+    // T5 — main scenario by a course admin; oracle: BR-student-lifecycle ("a course admin ... may deactivate")
+    @Test
+    void testCourseAdminDeactivatesStudent() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/5/deactivation").header(HttpHeaders.AUTHORIZATION, this.adminToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.enabled").value(false));
+    }
+
+    // T7 — extension 6a; oracle: 6a1 "not found"
+    @Test
+    void testDeactivateUnknownStudent() throws Exception {
+        this.mockMvc.perform(patch(this.baseUrl + "/students/9999/deactivation").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.NOT_FOUND));
+    }
+
+    // T8 — extension 6b; oracle: FR-SEC-active-account "regardless of otherwise-valid credentials", POST-2
+    @Test
+    void testLoggedInStudentIsRefusedAfterDeactivation() throws Exception {
+        // John's token was issued in setUp, before the deactivation, and has not expired
+        this.mockMvc.perform(get(this.baseUrl + "/students/4").header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+        this.mockMvc.perform(patch(this.baseUrl + "/students/4/deactivation").header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS));
+        this.mockMvc.perform(get(this.baseUrl + "/students/4").header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
+                .andExpect(jsonPath("$.flag").value(false))
+                .andExpect(jsonPath("$.code").value(StatusCode.UNAUTHORIZED));
+    }
+
 }
