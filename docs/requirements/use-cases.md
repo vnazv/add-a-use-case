@@ -1462,6 +1462,7 @@ Details:
 
 **Postconditions:**
 - POST-1. The student's account is deactivated.
+- POST-2. Any session she already holds is refused on its next request, not only her next login (FR-SEC-active-account).
 
 **Main Success Scenario:**
 1. The course admin or instructor indicates to deactivate a student.
@@ -1485,6 +1486,9 @@ Details:
 - **6a. The student no longer exists when the confirmation arrives (she was deleted meanwhile, UC-STU-delete-student):**
   - 6a1. The system informs the course admin or instructor that the student was not found, and changes nothing.
   - 6a2. Use case ends.
+- **6b. The student is logged in at the moment she is deactivated:**
+  - 6b1. The system deactivates her as in step 6; her next request with the token she already holds is refused as unauthenticated (FR-SEC-active-account), so she does not keep access until the token expires.
+  - 6b2. Use case ends.
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
 **Business Rules:** BR-student-lifecycle
