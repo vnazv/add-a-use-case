@@ -673,4 +673,45 @@ class EvaluationServiceTest {
         assertThat(peerEvaluations.get(2).getTotalScore()).isCloseTo(49.0, within(0.01));
     }
 
+    // T9 — BR-evaluation-active-evaluatee: a deactivated teammate cannot be rated; oracle: the rule's text
+    @Test
+    void testAddPeerEvaluationEvaluateeDeactivated() {
+        // Given: same date and week as testAddPeerEvaluationEvaluatorEvaluateeNotOnTheSameTeam, so only "active" differs
+        LocalDate fixedDate = LocalDate.of(2023, 8, 8);
+        Clock fixedClock = Clock.fixed(fixedDate.atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        given(this.clock.instant()).willReturn(fixedClock.instant());
+        given(this.clock.getZone()).willReturn(fixedClock.getZone());
+        this.eric.setEnabled(false);
+        PeerEvaluation newPeerEvaluation = new PeerEvaluation("2023-W31", this.john, this.eric, List.of(), "public comment", "private comment");
+
+        // When
+        Throwable throwable = catchThrowable(() -> this.evaluationService.addPeerEvaluation(newPeerEvaluation));
+
+        // Then
+        assertThat(throwable)
+                .isInstanceOf(PeerEvaluationIllegalArgumentException.class)
+                .hasMessage("This teammate's account is deactivated, so she can no longer be evaluated.");
+        verify(this.evaluationRepository, times(0)).save(any(PeerEvaluation.class));
+    }
+
+    // T10 — BR-evaluation-active-evaluatee: report lists a deactivated student only for a week she was evaluated
+    @Test
+    void testGenerateWeeklyPeerEvaluationReportForSectionDeactivatedStudent() {
+        // Given: eric (id 4) is deactivated; he has evaluations in W31, none in W32
+        this.eric.setEnabled(false);
+        given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
+        given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 4)).willReturn(this.ericsW31Evaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W32", 4)).willReturn(List.of());
+
+        // When
+        WeeklyPeerEvaluationReport w31 = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W31");
+        WeeklyPeerEvaluationReport w32 = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W32");
+
+        // Then
+        assertThat(w31.getPeerEvaluationAverages()).extracting(PeerEvaluationAverage::getStudentId).contains(4);
+        assertThat(w32.getPeerEvaluationAverages()).extracting(PeerEvaluationAverage::getStudentId).doesNotContain(4);
+        assertThat(w32.getPeerEvaluationAverages()).hasSize(4); // the four active students are still listed
+    }
+
 }
