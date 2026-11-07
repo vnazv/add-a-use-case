@@ -701,6 +701,7 @@ class EvaluationServiceTest {
         this.eric.setEnabled(false);
         given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
         given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
+                given(this.evaluationRepository.findByWeekAndEvaluateeId(anyString(), anyInt())).willReturn(List.of()); // default: no evaluations
         given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 4)).willReturn(this.ericsW31Evaluations);
         given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W32", 4)).willReturn(List.of());
 
