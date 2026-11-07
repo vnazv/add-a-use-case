@@ -39,3 +39,7 @@ export const updateStudent = (updatedStudent: Student) =>
 
 export const deleteStudent = (id: number) =>
   request.delete<any, DeleteStudentResponse>(`${API.STUDENTS_ENDPOINT}/${id}`)
+
+// UC-STU-deactivate-student: dedicated action, called only after the confirmation dialog (step 5)
+export const deactivateStudent = (id: number) =>
+  request.patch<any, UpdateStudentResponse>(`${API.STUDENTS_ENDPOINT}/${id}/deactivation`)
